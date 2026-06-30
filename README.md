@@ -2,7 +2,7 @@
 
 Interactive dashboard tracking LM Arena leaderboard scores over time, with tabs for geographic groups, license types, and head-to-head org comparisons.
 
-Live: https://ferreirafabio.github.io/lmarena-analysis/
+Live: https://geoalgo.github.io/lmarena-analysis/
 
 ## Setup
 
