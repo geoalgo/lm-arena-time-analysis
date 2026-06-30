@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LM Arena Leaderboard</title>
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f0f2f5;
+      color: #111827;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1e1b4b, #312e81);
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.01em; white-space: nowrap; }
+    header p  { font-size: 0.78rem; opacity: 0.5; }
+
+    /* ── Tabs ── */
+    nav {
+      background: white;
+      border-bottom: 1px solid #e5e7eb;
+      padding: 0 32px;
+      display: flex;
+    }
+    .tab {
+      padding: 12px 16px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      border: none;
+      background: none;
+      cursor: pointer;
+      color: #6b7280;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      transition: color 0.12s;
+    }
+    .tab.active { color: #4f46e5; border-bottom-color: #4f46e5; }
+    .tab:hover:not(.active) { color: #374151; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Layout ── */
+    main { padding: 20px 28px; display: flex; flex-direction: column; gap: 16px; }
+
+    .card {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    /* ── Controls ── */
+    .controls {
+      padding: 16px 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      align-items: flex-start;
+    }
+    .ctrl-group { display: flex; flex-direction: column; gap: 6px; }
+    .ctrl-label {
+      font-size: 0.67rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+    }
+
+    select {
+      padding: 7px 30px 7px 10px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 7px;
+      font-size: 0.875rem;
+      background: white url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E") no-repeat right 9px center;
+      appearance: none;
+      cursor: pointer;
+      color: #374151;
+      min-width: 210px;
+    }
+    select:focus { outline: none; border-color: #4f46e5; }
+
+    /* ── Org section ── */
+    .org-section { display: flex; flex-direction: column; gap: 8px; flex: 1; }
+    .org-header  { display: flex; align-items: center; gap: 12px; }
+    .org-actions { display: flex; gap: 6px; margin-left: auto; }
+    .action-btn {
+      padding: 2px 9px;
+      border: 1px solid #e5e7eb;
+      border-radius: 5px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: white;
+      color: #6b7280;
+    }
+    .action-btn:hover { background: #f9fafb; color: #374151; }
+
+    .org-toggles { display: flex; flex-wrap: wrap; gap: 5px; }
+    .org-btn {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px 4px 7px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 20px;
+      font-size: 0.76rem;
+      font-weight: 500;
+      cursor: pointer;
+      background: white;
+      color: #6b7280;
+      transition: border-color 0.1s, color 0.1s;
+      white-space: nowrap;
+    }
+    .org-btn .dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .org-btn.active { color: #111827; border-color: var(--org-color); }
+    .org-btn:not(.active) .dot { opacity: 0.35; }
+    .org-btn:hover { border-color: var(--org-color); color: #374151; }
+
+    /* ── Chart ── */
+    .chart-card { overflow: hidden; }
+    #chart-ratings { width: 100%; }
+
+    .placeholder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 560px;
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>LM Arena Leaderboard</h1>
+  <p>Arena score over time · best model per organization · source: lmarena-ai/leaderboard-dataset</p>
+</header>
+
+<nav>
+  <button class="tab active" data-panel="panel-ratings">Rating Over Time</button>
+  <button class="tab" data-panel="panel-groups"> 🇺🇸 vs 🇨🇳 vs 🇪🇺 vs Rest 🗺️</button>
+  <button class="tab" data-panel="panel-licenses">Proprietary vs Open-weights vs Open-source</button>
+  <button class="tab" data-panel="panel-top5">Google vs Anthropic vs OpenAI vs xAI vs Meta</button>
+</nav>
+
+<main>
+  <div id="panel-ratings" class="tab-panel active">
+    <div class="card controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Category</span>
+        <select id="cat-select"></select>
+      </div>
+      <div class="org-section">
+        <div class="org-header">
+          <span class="ctrl-label">Organizations</span>
+          <div class="org-actions">
+            <button class="action-btn" id="btn-all">All</button>
+            <button class="action-btn" id="btn-none">None</button>
+          </div>
+        </div>
+        <div class="org-toggles" id="org-toggles"></div>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div id="chart-ratings"><div class="placeholder">Loading data…</div></div>
+    </div>
+  </div>
+  <div id="panel-groups" class="tab-panel">
+    <div class="card controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Category</span>
+        <select id="group-cat-select"></select>
+      </div>
+      <div class="ctrl-group" style="flex:1;">
+        <span class="ctrl-label">Metric</span>
+        <span style="font-size:0.82rem;color:#6b7280;padding-top:4px;">
+           Probability group champion beats all other group champions 
+        </span>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div id="chart-group"><div class="placeholder">Loading data…</div></div>
+    </div>
+  </div>
+  <div id="panel-licenses" class="tab-panel">
+    <div class="card controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Category</span>
+        <select id="lic-cat-select"></select>
+      </div>
+      <div class="ctrl-group" style="flex:1;">
+        <span class="ctrl-label">Metric</span>
+        <span style="font-size:0.82rem;color:#6b7280;padding-top:4px;">
+          Probability group champion beats all other group champions
+        </span>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div id="chart-licenses"><div class="placeholder">Loading data…</div></div>
+    </div>
+  </div>
+  <div id="panel-top5" class="tab-panel">
+    <div class="card controls">
+      <div class="ctrl-group">
+        <span class="ctrl-label">Category</span>
+        <select id="top5-cat-select"></select>
+      </div>
+      <div class="ctrl-group" style="flex:1;">
+        <span class="ctrl-label">Metric</span>
+        <span style="font-size:0.82rem;color:#6b7280;padding-top:4px;">
+          Probability group champion beats all other group champions
+        </span>
+      </div>
+    </div>
+    <div class="card chart-card">
+      <div id="chart-top5"><div class="placeholder">Loading data…</div></div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ── Palette ───────────────────────────────────────────────────────────────────
+const ORG_COLORS = {
+  anthropic:   "#e87b36",
+  openai:      "#10a37f",
+  google:      "#4285f4",
+  meta:        "#0064e0",
+  xai:         "#374151",
+  deepseek:    "#e11d48",
+  mistral:     "#7c3aed",
+  nvidia:      "#76b900",
+  alibaba:     "#f97316",
+  Microsoft:   "#00a4ef",
+  amazon:      "#f59e0b",
+  cohere:      "#d946ef",
+  tencent:     "#07c160",
+  baidu:       "#2932e1",
+  moonshot:    "#6366f1",
+  Bytedance:   "#fe2c55",
+  zai:         "#0ea5e9",
+  minimax:     "#84cc16",
+  stepfun:     "#14b8a6",
+  meituan:     "#a16207",
+  xiaomi:      "#64748b",
+};
+const FALLBACK = [
+  "#8b5cf6","#ec4899","#ef4444","#22c55e","#06b6d4",
+  "#f43f5e","#eab308","#10b981","#3b82f6","#a855f7",
+];
+const colorCache = {};
+function getColor(org) {
+  if (colorCache[org]) return colorCache[org];
+  const c = ORG_COLORS[org] || FALLBACK[Object.keys(colorCache).length % FALLBACK.length];
+  colorCache[org] = c;
+  return c;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let appData    = null;
+let orgMeta    = {};
+let selOrgs    = new Set();
+let currentCat = "overall";
+
+function displayName(org) {
+  return (orgMeta[org] && orgMeta[org].name) ? orgMeta[org].name : org;
+}
+function initColors() { appData.orgs.forEach(org => getColor(org)); }
+
+// ── Render chart ──────────────────────────────────────────────────────────────
+function renderChart() {
+  const el = document.getElementById("chart-ratings");
+  const catData = appData.data[currentCat] || {};
+  const active = appData.orgs.filter(o => selOrgs.has(o) && catData[o]);
+
+  if (!active.length) {
+    Plotly.purge(el);
+    el.innerHTML = '<div class="placeholder">Select at least one organization above.</div>';
+    return;
+  }
+
+  const traces = [];
+  active.forEach(org => {
+    const d = catData[org];
+    const dates = d.i.map(i => appData.dates[i]);
+    const color = getColor(org);
+    const label = displayName(org);
+
+    traces.push({
+      x: dates, y: d.r,
+      mode: "lines+markers",
+      name: label,
+      line:   { color, width: 2.5 },
+      marker: { size: 4, color },
+      customdata: d.m,
+      hovertemplate:
+        `<b style="color:${color}">%{fullData.name}</b><br>` +
+        `%{x|%b %d, %Y}<br>` +
+        `Score: <b>%{y:.1f}</b><br>` +
+        `Model: <i>%{customdata}</i><extra></extra>`,
+    });
+  });
+
+  const layout = {
+    height: 560,
+    margin: { t: 24, r: 160, b: 52, l: 70 },
+    paper_bgcolor: "white", plot_bgcolor: "white",
+    xaxis: {
+      showgrid: false, zeroline: false, showline: true, linecolor: "#e5e7eb",
+      tickformat: "%b %Y", tickfont: { size: 11, color: "#6b7280" },
+    },
+    yaxis: {
+      title: { text: "Arena Score", font: { size: 12, color: "#6b7280" } },
+      showgrid: true, gridcolor: "#f3f4f6", zeroline: false,
+      tickfont: { size: 11, color: "#6b7280" },
+    },
+    legend: { x: 1.01, y: 1, xanchor: "left", font: { size: 12 }, bgcolor: "rgba(0,0,0,0)" },
+    hovermode: "closest",
+    hoverlabel: { bgcolor: "#1f2937", font: { color: "white", size: 12 }, bordercolor: "transparent" },
+    font: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+    shapes: [], annotations: [],
+  };
+
+  Plotly.react(el, traces, layout, {
+    responsive: true, displaylogo: false,
+    modeBarButtonsToRemove: ["lasso2d","select2d","autoScale2d","toImage"],
+  });
+}
+
+// ── Org toggles ───────────────────────────────────────────────────────────────
+function buildToggles() {
+  const container = document.getElementById("org-toggles");
+  container.innerHTML = "";
+  appData.orgs.forEach(org => {
+    const color = getColor(org);
+    const btn = document.createElement("button");
+    btn.className = "org-btn" + (selOrgs.has(org) ? " active" : "");
+    btn.style.setProperty("--org-color", color);
+    btn.innerHTML = `<span class="dot" style="background:${color}"></span>${displayName(org)}`;
+    btn.dataset.org = org;
+    btn.addEventListener("click", () => {
+      if (selOrgs.has(org)) selOrgs.delete(org);
+      else selOrgs.add(org);
+      btn.classList.toggle("active", selOrgs.has(org));
+      renderChart();
+    });
+    container.appendChild(btn);
+  });
+}
+
+document.getElementById("btn-all").addEventListener("click", () => {
+  appData.orgs.forEach(o => selOrgs.add(o));
+  document.querySelectorAll(".org-btn").forEach(b => b.classList.add("active"));
+  renderChart();
+});
+document.getElementById("btn-none").addEventListener("click", () => {
+  selOrgs.clear();
+  document.querySelectorAll(".org-btn").forEach(b => b.classList.remove("active"));
+  renderChart();
+});
+
+// ── Shared helper ─────────────────────────────────────────────────────────────
+function winProbYRange(results) {
+  const vals = Object.values(results).flat().filter(v => v != null);
+  if (!vals.length) return [0, 100];
+  return [Math.max(Math.min(...vals) - 2, 0), Math.min(Math.max(...vals) + 2, 100)];
+}
+
+// ── Group win probability tab ─────────────────────────────────────────────────
+const GROUPS      = ["US", "China", "Europe", "Other"];
+const GROUP_LABELS = { US: "🇺🇸 US", China: "🇨🇳 China", Europe: "🇪🇺 Europe", Other: "Other" };
+const GROUP_COLORS = { US: "#4285f4", China: "#e11d48", Europe: "#7c3aed", Other: "#6b7280" };
+
+let groupCat   = "overall";
+const orgToGroup = {};
+
+function buildOrgToGroup() {
+  appData.orgs.forEach(org => {
+    const origin = (orgMeta[org] && orgMeta[org].origin) ? orgMeta[org].origin : "Other";
+    orgToGroup[org] = (origin === "US") ? "US"
+                    : (origin === "China") ? "China"
+                    : (origin === "Europe") ? "Europe"
+                    : "Other";
+  });
+}
+
+function computeGroupWinProbs(cat) {
+  const catData = appData.data[cat] || {};
+  const dateGroupBest = {};
+
+  Object.entries(catData).forEach(([org, d]) => {
+    const group = orgToGroup[org];
+    if (!group) return;
+    d.i.forEach((dateIdx, j) => {
+      if (d.r[j] == null) return;
+      if (!dateGroupBest[dateIdx]) dateGroupBest[dateIdx] = {};
+      if (dateGroupBest[dateIdx][group] == null || d.r[j] > dateGroupBest[dateIdx][group].r) {
+        dateGroupBest[dateIdx][group] = { r: d.r[j], m: d.m[j] };
+      }
+    });
+  });
+
+  const groupResults = {};
+  const groupModels  = {};
+  GROUPS.forEach(g => { groupResults[g] = []; groupModels[g] = []; });
+  const dates = [];
+
+  Object.entries(dateGroupBest)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .forEach(([dateIdx, groupBest]) => {
+      if (Object.keys(groupBest).length < 2) return;
+      dates.push(appData.dates[Number(dateIdx)]);
+      GROUPS.forEach(g => {
+        if (!(g in groupBest)) { groupResults[g].push(null); groupModels[g].push(null); return; }
+        const { r: ra, m: champion } = groupBest[g];
+        const others = Object.entries(groupBest).filter(([og]) => og !== g);
+        const mean = others.reduce((sum, [, ob]) => sum + 1 / (1 + Math.pow(10, (ob.r - ra) / 400)), 0) / others.length;
+        groupResults[g].push(+(mean * 100).toFixed(2));
+        groupModels[g].push(champion);
+      });
+    });
+
+  return { dates, results: groupResults, models: groupModels };
+}
+
+function renderGroupChart() {
+  const el = document.getElementById("chart-group");
+  if (!appData) return;
+
+  const { dates, results, models } = computeGroupWinProbs(groupCat);
+  const [ymin, ymax] = winProbYRange(results);
+
+  const traces = GROUPS.map(g => ({
+    x: dates,
+    y: results[g],
+    customdata: models[g],
+    mode: "lines+markers",
+    name: GROUP_LABELS[g],
+    line:   { color: GROUP_COLORS[g], width: 2.5 },
+    marker: { size: 4, color: GROUP_COLORS[g] },
+    connectgaps: false,
+    hovertemplate:
+      `<b style="color:${GROUP_COLORS[g]}">${GROUP_LABELS[g]}</b><br>` +
+      `%{x|%b %d, %Y}<br>Win prob: <b>%{y:.1f}%</b><br>Champion: <i>%{customdata}</i><extra></extra>`,
+  }));
+
+  const layout = {
+    height: 520,
+    margin: { t: 24, r: 160, b: 52, l: 70 },
+    paper_bgcolor: "white", plot_bgcolor: "white",
+    xaxis: {
+      showgrid: false, zeroline: false, showline: true, linecolor: "#e5e7eb",
+      tickformat: "%b %Y", tickfont: { size: 11, color: "#6b7280" },
+    },
+    yaxis: {
+      title: { text: "Win Probability (%)", font: { size: 12, color: "#6b7280" } },
+      ticksuffix: "%",
+      showgrid: true, gridcolor: "#f3f4f6",
+      zeroline: false, range: [ymin, ymax],
+      tickfont: { size: 11, color: "#6b7280" },
+    },
+    shapes: [{
+      type: "line", xref: "paper", x0: 0, x1: 1,
+      yref: "y", y0: 50, y1: 50,
+      line: { color: "#94a3b8", width: 1.5, dash: "dot" },
+    }],
+    annotations: [{
+      xref: "paper", x: 1.01, xanchor: "left",
+      yref: "y", y: 50,
+      text: "50%", showarrow: false,
+      font: { size: 10, color: "#94a3b8" },
+    }],
+    legend: { x: 1.01, y: 1, xanchor: "left", font: { size: 12 }, bgcolor: "rgba(0,0,0,0)" },
+    hovermode: "x unified",
+    hoverlabel: { bgcolor: "#1f2937", font: { color: "white", size: 12 }, bordercolor: "transparent" },
+    font: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+  };
+
+  Plotly.react(el, traces, layout, {
+    responsive: true, displaylogo: false,
+    modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d", "toImage"],
+  });
+}
+
+// ── License win probability tab ───────────────────────────────────────────────
+const LIC_GROUPS  = ["Proprietary", "Open-weights", "Open-source"];
+const LIC_LABELS  = { "Proprietary": "Proprietary", "Open-weights": "Open-weights", "Open-source": "Open-source" };
+const LIC_COLORS  = { "Proprietary": "#4f46e5", "Open-weights": "#059669", "Open-source": "#d97706" };
+
+let licCat = "overall";
+
+function computeLicenseWinProbs(cat) {
+  const catData = appData.data[cat] || {};
+  const dateGroupBest = {};
+
+  Object.entries(catData).forEach(([, d]) => {
+    d.i.forEach((dateIdx, j) => {
+      if (d.r[j] == null) return;
+      const lic = (d.k && d.k[j]) ? d.k[j] : "Unknown";
+      if (!LIC_GROUPS.includes(lic)) return;
+      if (!dateGroupBest[dateIdx]) dateGroupBest[dateIdx] = {};
+      if (dateGroupBest[dateIdx][lic] == null || d.r[j] > dateGroupBest[dateIdx][lic].r) {
+        dateGroupBest[dateIdx][lic] = { r: d.r[j], m: d.m[j] };
+      }
+    });
+  });
+
+  const groupResults = {};
+  const groupModels  = {};
+  LIC_GROUPS.forEach(g => { groupResults[g] = []; groupModels[g] = []; });
+  const dates = [];
+
+  Object.entries(dateGroupBest)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .forEach(([dateIdx, groupBest]) => {
+      if (Object.keys(groupBest).length < 2) return;
+      dates.push(appData.dates[Number(dateIdx)]);
+      LIC_GROUPS.forEach(g => {
+        if (!(g in groupBest)) { groupResults[g].push(null); groupModels[g].push(null); return; }
+        const { r: ra, m: champion } = groupBest[g];
+        const others = Object.entries(groupBest).filter(([og]) => og !== g);
+        const mean = others.reduce((sum, [, ob]) => sum + 1 / (1 + Math.pow(10, (ob.r - ra) / 400)), 0) / others.length;
+        groupResults[g].push(+(mean * 100).toFixed(2));
+        groupModels[g].push(champion);
+      });
+    });
+
+  return { dates, results: groupResults, models: groupModels };
+}
+
+function renderLicenseChart() {
+  const el = document.getElementById("chart-licenses");
+  if (!appData) return;
+
+  const { dates, results, models } = computeLicenseWinProbs(licCat);
+  const [ymin, ymax] = winProbYRange(results);
+
+  const traces = LIC_GROUPS.map(g => ({
+    x: dates,
+    y: results[g],
+    customdata: models[g],
+    mode: "lines+markers",
+    name: LIC_LABELS[g],
+    line:   { color: LIC_COLORS[g], width: 2.5 },
+    marker: { size: 4, color: LIC_COLORS[g] },
+    connectgaps: false,
+    hovertemplate:
+      `<b style="color:${LIC_COLORS[g]}">${LIC_LABELS[g]}</b><br>` +
+      `%{x|%b %d, %Y}<br>Win prob: <b>%{y:.1f}%</b><br>Champion: <i>%{customdata}</i><extra></extra>`,
+  }));
+
+  const layout = {
+    height: 520,
+    margin: { t: 24, r: 160, b: 52, l: 70 },
+    paper_bgcolor: "white", plot_bgcolor: "white",
+    xaxis: {
+      showgrid: false, zeroline: false, showline: true, linecolor: "#e5e7eb",
+      tickformat: "%b %Y", tickfont: { size: 11, color: "#6b7280" },
+    },
+    yaxis: {
+      title: { text: "Win Probability (%)", font: { size: 12, color: "#6b7280" } },
+      ticksuffix: "%",
+      showgrid: true, gridcolor: "#f3f4f6",
+      zeroline: false, range: [ymin, ymax],
+      tickfont: { size: 11, color: "#6b7280" },
+    },
+    shapes: [{
+      type: "line", xref: "paper", x0: 0, x1: 1,
+      yref: "y", y0: 50, y1: 50,
+      line: { color: "#94a3b8", width: 1.5, dash: "dot" },
+    }],
+    annotations: [{
+      xref: "paper", x: 1.01, xanchor: "left",
+      yref: "y", y: 50,
+      text: "50%", showarrow: false,
+      font: { size: 10, color: "#94a3b8" },
+    }],
+    legend: { x: 1.01, y: 1, xanchor: "left", font: { size: 12 }, bgcolor: "rgba(0,0,0,0)" },
+    hovermode: "x unified",
+    hoverlabel: { bgcolor: "#1f2937", font: { color: "white", size: 12 }, bordercolor: "transparent" },
+    font: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+  };
+
+  Plotly.react(el, traces, layout, {
+    responsive: true, displaylogo: false,
+    modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d", "toImage"],
+  });
+}
+
+// ── Top-5 org win probability tab ────────────────────────────────────────────
+const TOP5_ORGS   = ["google", "anthropic", "openai", "xai", "meta"];
+const TOP5_COLORS = { google: "#4285f4", anthropic: "#e87b36", openai: "#10a37f", xai: "#374151", meta: "#0064e0" };
+
+let top5Cat = "overall";
+
+function computeTop5WinProbs(cat) {
+  const catData = appData.data[cat] || {};
+  const dateOrgBest = {};
+
+  TOP5_ORGS.forEach(org => {
+    const d = catData[org];
+    if (!d) return;
+    d.i.forEach((dateIdx, j) => {
+      if (d.r[j] == null) return;
+      if (!dateOrgBest[dateIdx]) dateOrgBest[dateIdx] = {};
+      dateOrgBest[dateIdx][org] = { r: d.r[j], m: d.m[j] };
+    });
+  });
+
+  const results = {};
+  const models  = {};
+  TOP5_ORGS.forEach(o => { results[o] = []; models[o] = []; });
+  const dates = [];
+
+  Object.entries(dateOrgBest)
+    .sort(([a], [b]) => Number(a) - Number(b))
+    .forEach(([dateIdx, orgBest]) => {
+      if (Object.keys(orgBest).length < 2) return;
+      dates.push(appData.dates[Number(dateIdx)]);
+      TOP5_ORGS.forEach(o => {
+        if (!(o in orgBest)) { results[o].push(null); models[o].push(null); return; }
+        const { r: ra, m: champion } = orgBest[o];
+        const others = Object.entries(orgBest).filter(([og]) => og !== o);
+        const mean = others.reduce((sum, [, ob]) => sum + 1 / (1 + Math.pow(10, (ob.r - ra) / 400)), 0) / others.length;
+        results[o].push(+(mean * 100).toFixed(2));
+        models[o].push(champion);
+      });
+    });
+
+  return { dates, results, models };
+}
+
+function renderTop5Chart() {
+  const el = document.getElementById("chart-top5");
+  if (!appData) return;
+
+  const { dates, results, models } = computeTop5WinProbs(top5Cat);
+  const [ymin, ymax] = winProbYRange(results);
+
+  const traces = TOP5_ORGS.map(o => {
+    const label = displayName(o);
+    const color = TOP5_COLORS[o];
+    return {
+      x: dates, y: results[o],
+      customdata: models[o],
+      mode: "lines+markers",
+      name: label,
+      line:   { color, width: 2.5 },
+      marker: { size: 4, color },
+      connectgaps: false,
+      hovertemplate:
+        `<b style="color:${color}">${label}</b><br>` +
+        `%{x|%b %d, %Y}<br>Win prob: <b>%{y:.1f}%</b><br>Champion: <i>%{customdata}</i><extra></extra>`,
+    };
+  });
+
+  const layout = {
+    height: 520,
+    margin: { t: 24, r: 160, b: 52, l: 70 },
+    paper_bgcolor: "white", plot_bgcolor: "white",
+    xaxis: {
+      showgrid: false, zeroline: false, showline: true, linecolor: "#e5e7eb",
+      tickformat: "%b %Y", tickfont: { size: 11, color: "#6b7280" },
+    },
+    yaxis: {
+      title: { text: "Win Probability (%)", font: { size: 12, color: "#6b7280" } },
+      ticksuffix: "%",
+      showgrid: true, gridcolor: "#f3f4f6",
+      zeroline: false, range: [ymin, ymax],
+      tickfont: { size: 11, color: "#6b7280" },
+    },
+    shapes: [{
+      type: "line", xref: "paper", x0: 0, x1: 1,
+      yref: "y", y0: 50, y1: 50,
+      line: { color: "#94a3b8", width: 1.5, dash: "dot" },
+    }],
+    annotations: [{
+      xref: "paper", x: 1.01, xanchor: "left",
+      yref: "y", y: 50,
+      text: "50%", showarrow: false,
+      font: { size: 10, color: "#94a3b8" },
+    }],
+    legend: { x: 1.01, y: 1, xanchor: "left", font: { size: 12 }, bgcolor: "rgba(0,0,0,0)" },
+    hovermode: "x unified",
+    hoverlabel: { bgcolor: "#1f2937", font: { color: "white", size: 12 }, bordercolor: "transparent" },
+    font: { family: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' },
+  };
+
+  Plotly.react(el, traces, layout, {
+    responsive: true, displaylogo: false,
+    modeBarButtonsToRemove: ["lasso2d", "select2d", "autoScale2d", "toImage"],
+  });
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach(p => p.classList.remove("active"));
+    tab.classList.add("active");
+    const panel = document.getElementById(tab.dataset.panel);
+    panel.classList.add("active");
+    if (tab.dataset.panel === "panel-groups" && appData) renderGroupChart();
+    if (tab.dataset.panel === "panel-licenses" && appData) renderLicenseChart();
+    if (tab.dataset.panel === "panel-top5"     && appData) renderTop5Chart();
+  });
+});
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+Promise.all([
+  fetch("dashboard_data.json").then(r => r.json()),
+  fetch(`org_metadata.json?v=${Date.now()}`).then(r => r.json()).catch(() => ({ orgs: {} })),
+]).then(([data, meta]) => {
+  appData = data;
+  orgMeta = meta.orgs || {};
+  initColors();
+
+  const sel = document.getElementById("cat-select");
+  appData.categories.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat.id; opt.textContent = cat.label;
+    if (cat.id === "overall") opt.selected = true;
+    sel.appendChild(opt);
+  });
+  sel.addEventListener("change", e => { currentCat = e.target.value; renderChart(); });
+
+  ["anthropic","openai","google","meta","xai","deepseek"].forEach(o => {
+    if (appData.orgs.includes(o)) selOrgs.add(o);
+  });
+
+  const groupSel = document.getElementById("group-cat-select");
+  appData.categories.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat.id; opt.textContent = cat.label;
+    if (cat.id === "overall") opt.selected = true;
+    groupSel.appendChild(opt);
+  });
+  groupSel.addEventListener("change", e => {
+    groupCat = e.target.value;
+    if (document.getElementById("panel-groups").classList.contains("active")) renderGroupChart();
+  });
+
+  const licSel = document.getElementById("lic-cat-select");
+  appData.categories.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat.id; opt.textContent = cat.label;
+    if (cat.id === "overall") opt.selected = true;
+    licSel.appendChild(opt);
+  });
+  licSel.addEventListener("change", e => {
+    licCat = e.target.value;
+    if (document.getElementById("panel-licenses").classList.contains("active")) renderLicenseChart();
+  });
+
+  const top5Sel = document.getElementById("top5-cat-select");
+  appData.categories.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat.id; opt.textContent = cat.label;
+    if (cat.id === "overall") opt.selected = true;
+    top5Sel.appendChild(opt);
+  });
+  top5Sel.addEventListener("change", e => {
+    top5Cat = e.target.value;
+    if (document.getElementById("panel-top5").classList.contains("active")) renderTop5Chart();
+  });
+
+  buildOrgToGroup();
+  buildToggles();
+  renderChart();
+}).catch(err => {
+  document.getElementById("chart-ratings").innerHTML =
+    `<div class="placeholder">Failed to load data: ${err.message}</div>`;
+});
+</script>
+</body>
+</html>

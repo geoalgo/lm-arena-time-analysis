@@ -1,0 +1,13 @@
+RWKV-4-Raven-14B
+dolly-v2-12b
+molmo-2-8b
+nvidia-nemotron-3-nano-30b-a3b-bf16
+nvidia-nemotron-3-super-120b-a12b
+nvidia-nemotron-3-ultra-550b-a55b-nvfp4
+oasst-pythia-12b
+olmo-2-0325-32b-instruct
+olmo-3-32b-think
+olmo-3.1-32b-instruct
+olmo-3.1-32b-think
+olmo-7b-instruct
+smollm2-1.7b-instruct
